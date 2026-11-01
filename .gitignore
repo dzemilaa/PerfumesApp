@@ -1,0 +1,32 @@
+# Environment and local credentials
+.env
+.env.*
+!.env.example
+**/appsettings.Local.json
+**/appsettings.Development.Local.json
+**/secrets.json
+
+# .NET build and IDE output
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+**/*.suo
+**/TestResults/
+
+# Node.js and frontend build output
+**/node_modules/
+**/dist/
+**/coverage/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/pnpm-debug.log*
+
+# Local containers and editor/OS files
+.docker-data/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+*.swp

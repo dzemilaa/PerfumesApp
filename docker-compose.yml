@@ -1,0 +1,123 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-perfumes}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_only}
+      POSTGRES_DB: perfumes
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./mikroservisi/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-init-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d perfumes"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  loginservice:
+    build: ./mikroservisi/loginservice
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=postgres;Database=perfumes_auth;Username=${POSTGRES_USER:-perfumes};Password=${POSTGRES_PASSWORD:-local_dev_only}
+      AppSettings__BaseUrl: http://localhost:5174
+      SendGrid__ApiKey: ${SENDGRID_API_KEY:-}
+      SendGrid__FromEmail: ${SENDGRID_FROM_EMAIL:-}
+      SendGrid__FromName: ${SENDGRID_FROM_NAME:-Bella Perfumes}
+    ports:
+      - "5000:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  productservice:
+    build: ./mikroservisi/productservice
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=postgres;Database=perfumes_products;Username=${POSTGRES_USER:-perfumes};Password=${POSTGRES_PASSWORD:-local_dev_only}
+      AppSettings__PublicBaseUrl: http://localhost:5001
+      Cloudinary__CloudName: ${CLOUDINARY_CLOUD_NAME:-}
+      Cloudinary__ApiKey: ${CLOUDINARY_API_KEY:-}
+      Cloudinary__ApiSecret: ${CLOUDINARY_API_SECRET:-}
+    ports:
+      - "5001:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  shopservice:
+    build: ./mikroservisi/shopservice
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=postgres;Database=perfumes_shop;Username=${POSTGRES_USER:-perfumes};Password=${POSTGRES_PASSWORD:-local_dev_only}
+      Services__ProductGraphQLUrl: http://productservice:8080/graphql
+    ports:
+      - "5002:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      productservice:
+        condition: service_started
+
+  orderservice:
+    build: ./mikroservisi/orderservice
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=postgres;Database=perfumes_orders;Username=${POSTGRES_USER:-perfumes};Password=${POSTGRES_PASSWORD:-local_dev_only}
+      Services__ShopGraphQLUrl: http://shopservice:8080/graphql
+      SendGrid__ApiKey: ${SENDGRID_API_KEY:-}
+      SendGrid__FromEmail: ${SENDGRID_FROM_EMAIL:-}
+      SendGrid__FromName: ${SENDGRID_FROM_NAME:-Bella Perfumes}
+    ports:
+      - "5003:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      shopservice:
+        condition: service_started
+
+  reviewservice:
+    build: ./mikroservisi/reviewservice
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=postgres;Database=perfumes_reviews;Username=${POSTGRES_USER:-perfumes};Password=${POSTGRES_PASSWORD:-local_dev_only}
+      Services__OrderGraphQLUrl: http://orderservice:8080/graphql
+    ports:
+      - "5004:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      orderservice:
+        condition: service_started
+
+  frontend:
+    image: node:24-alpine
+    working_dir: /app
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    environment:
+      VITE_LOGIN_API_URL: http://localhost:5000/graphql
+      VITE_PRODUCT_API_URL: http://localhost:5001/graphql
+      VITE_SHOP_API_URL: http://localhost:5002/graphql
+      VITE_ORDER_API_URL: http://localhost:5003/graphql
+      VITE_REVIEW_API_URL: http://localhost:5004/graphql
+    ports:
+      - "5174:5173"
+    volumes:
+      - ./client-frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - loginservice
+      - productservice
+      - shopservice
+      - orderservice
+      - reviewservice
+
+volumes:
+  postgres_data:
+  frontend_node_modules:

@@ -1,0 +1,19 @@
+{
+  "name": "tests",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha api.test.js --timeout 30000",
+    "test:watch": "mocha api.test.js --timeout 30000 --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "axios": "^1.14.0",
+    "chai": "^6.2.2",
+    "graphql-request": "^7.4.0",
+    "mocha": "^11.7.5"
+  }
+}
